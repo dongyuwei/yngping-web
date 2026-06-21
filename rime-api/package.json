@@ -1,0 +1,19 @@
+{
+  "name": "rime-api",
+  "version": "1.0.0",
+  "description": "CLI and HTTP API wrapper for librime WebAssembly (rime_console.wasm)",
+  "main": "rime.js",
+  "bin": {
+    "rime-cli": "./cli.js",
+    "rime-server": "./server.js"
+  },
+  "scripts": {
+    "cli": "node cli.js",
+    "server": "node server.js",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "license": "MIT"
+}
