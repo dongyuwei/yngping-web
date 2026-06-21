@@ -22,3 +22,8 @@ curl 'http://localhost:3000/translate?pinyin=nihao'   # → {"text":"你好"}
 ```
 
 详见 [rime-api/README.md](rime-api/README.md)。
+
+> **性能提示**: CLI 每次调用都要重启引擎（加载 wasm + 部署词库，约 3s）；
+> HTTP server / 编程式 API 只在启动时付一次代价，之后每次请求约 10ms。
+> 批量查询请用 server 或 `Rime.create()`，详见
+> [rime-api/README.md#performance](rime-api/README.md#performance)。

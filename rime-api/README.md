@@ -158,7 +158,46 @@ results through the `window.rime_callback` callback.
 
 - The engine maintains a user dictionary in memory — repeated
   translations may reorder candidates based on usage frequency.
-- The CLI starts a fresh engine each invocation (~1s startup). For
-  bulk processing, use the HTTP server or the programmatic API.
 - Only the first page of candidates (typically 5) is returned by
   `candidates()`.
+
+## Performance
+
+The librime engine has a heavy startup cost (wasm instantiation +
+dictionary deployment, ~2.5–3s). How that cost is paid differs sharply
+between the CLI and the HTTP/programmatic API:
+
+| Mode | Per-call latency | Why |
+|------|------------------|-----|
+| `cli.js` (one-shot) | ~3s | Spins up Node, loads wasm, runs `Module.init()`, translates one input, exits — full startup every time |
+| `server.js` (warm request) | ~10–15ms | Startup paid once at boot; each request only feeds keys to the running engine |
+| Programmatic `Rime.create()` | ~3s first call, ~10ms subsequent | Same as server: one init, many `translate()` calls |
+
+Benchmark on this machine (Apple Silicon, Node 24):
+
+```
+# CLI — 3 separate invocations
+node rime-api/cli.js nihao          3.03s total
+node rime-api/cli.js nihao          3.01s total
+node rime-api/cli.js nihao          2.94s total
+
+# HTTP server (warm) — 3 requests against a running server
+curl localhost:3000/translate?pinyin=nihao   0.05s
+curl localhost:3000/translate?pinyin=nihao   0.01s
+curl localhost:3000/translate?pinyin=nihao   0.01s
+```
+
+~250× faster when the engine stays warm. For any non-trivial workload
+(more than a couple of lookups), prefer:
+
+1. **The HTTP server** for service-style or cross-process usage, or
+2. **The programmatic API** to batch many lookups in one Node process.
+
+```js
+// Batch example — one startup, many translations
+const rime = await Rime.create();
+for (const p of ['nihao', 'shijie', 'zhongguo']) {
+  console.log(p, (await rime.translate(p)).text);
+}
+rime.close();
+```
