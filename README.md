@@ -19,6 +19,11 @@ echo "nihao shijie" | node rime-api/cli.js  # → 你好世界
 
 PORT=3000 node rime-api/server.js &
 curl 'http://localhost:3000/translate?pinyin=nihao'   # → {"text":"你好"}
+
+# 拼音 → 汉字 → 英文（结合本地 Ollama 翻译服务）
+OLLAMA_BASE_URL=http://10.144.209.129:11434 node rime-api/server.js &
+curl 'http://localhost:3000/translate?pinyin=wozhunbeizhezhouerqingjia&toEnglish=1'
+# → {"text":"我准备这周二请假","english":"I'm planning to take leave this Tuesday."}
 ```
 
 详见 [rime-api/README.md](rime-api/README.md)。

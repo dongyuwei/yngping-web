@@ -49,6 +49,15 @@ curl -X POST http://localhost:3000/translate \
   -H 'Content-Type: application/json' \
   -d '{"pinyin":"nihao","index":1}'
 # → {"pinyin":"nihao","index":1,"text":"妳好"}
+
+# Pinyin → 汉字 → English via Ollama (OpenAI-compatible /v1/chat/completions)
+OLLAMA_BASE_URL=http://10.144.209.129:11434 \
+OLLAMA_MODEL=huihui_ai/hy-mt1.5-abliterated:1.8b \
+PORT=3000 node rime-api/server.js &
+curl 'http://localhost:3000/translate?pinyin=wozhunbeizhezhouerqingjia&toEnglish=1'
+# → {"pinyin":"wozhunbeizhezhouerqingjia","index":0,
+#    "text":"我准备这周二请假",
+#    "english":"I'm planning to take leave this Tuesday."}
 ```
 
 ## Programmatic usage
@@ -126,11 +135,17 @@ Releases the wasm module and cleans up globals.
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/` | Service info |
-| `GET` | `/health` | Health check |
-| `GET` | `/translate?pinyin=<pinyin>&index=<n>` | Translate |
-| `POST` | `/translate` | Body: `{"pinyin":"...","index":0}` |
-| `GET` | `/candidates?pinyin=<pinyin>` | List candidates |
+| `GET` | `/health` | Health check (includes `ollama` availability) |
+| `GET` | `/translate?pinyin=<pinyin>&index=<n>&toEnglish=1` | Translate; optionally translate 汉字 → English via Ollama |
+| `POST` | `/translate` | Body: `{"pinyin":"...","index":0,"toEnglish":true}` |
+| `GET` | `/candidates?pinyin=<pinyin>` | List candidates for pinyin |
 | `POST` | `/candidates` | Body: `{"pinyin":"..."}` |
+
+`toEnglish=1` (or `true`/`yes`) adds an `english` field to the response
+with the English translation. If Ollama is unreachable, `english` is
+`null` and `englishError` describes the failure; the 汉字 `text` is
+still returned. If Ollama is not configured at all, the server returns
+`503`.
 
 ### Environment variables
 
@@ -140,6 +155,10 @@ Releases the wasm module and cleans up globals.
 | `RIME_SCHEMA` | `luna_pinyin` | Default schema |
 | `RIME_WASM_DIR` | `../wasm` | Wasm directory |
 | `RIME_VERBOSE` | `0` | Set to `1` for engine logs |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama base URL (OpenAI-compatible `/v1/chat/completions`) |
+| `OLLAMA_MODEL` | `huihui_ai/hy-mt1.5-abliterated:1.8b` | Ollama chat model |
+| `OLLAMA_SYSTEM_PROMPT` | `你是一个专业的翻译助手` | System prompt for translation |
+| `OLLAMA_TEMPERATURE` | `0.7` | Sampling temperature |
 
 ## How it works
 
@@ -153,6 +172,11 @@ Schema selection is done by writing a `default.custom.yaml` patch to
 the in-memory filesystem before `Module.init()` deploys the engine.
 The engine processes key-press bytes via `Module.input()` and reports
 results through the `window.rime_callback` callback.
+
+When `toEnglish` is requested on `/translate`, the committed 汉字 text
+is forwarded to an Ollama server (OpenAI-compatible
+`/v1/chat/completions` endpoint) with a translation system prompt; the
+returned English string is added to the response as `english`.
 
 ## Notes
 
